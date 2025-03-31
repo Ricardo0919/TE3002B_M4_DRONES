@@ -3,6 +3,7 @@ import cv2
 import threading
 import time
 
+
 drone = Tello()
 # Establece conexión de Wifi
 drone.connect()
