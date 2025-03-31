@@ -17,13 +17,23 @@ def clean_exit():
     print("\nDeteniendo el dron...")
     drone.streamoff()
     drone.end()
+    cv2.destroyAllWindows()
     print("Programa cerrado correctamente.")
 
 
 def video_stream():
 
     while True:
-        pass
+        # Obteniendo el último frame del video
+        frame = drone.get_frame_read().frame
+
+        #Mostrando la imagen
+        cv2.imshow("Stream de video", frame)
+
+        #Cerrar al presionar 'q'
+        if cv2.waitKey(10) & 0xFF == ord('q'):
+            clean_exit()
+            break
 
 
 def control():
@@ -35,8 +45,7 @@ def control():
 def main():
 
     try:
-        threading.Thread(target=video_stream, daemon=True).start()
-        threading.Thread(target=control, daemon=True).start()
+        video_stream()
 
         while True:
             time.sleep(1)
