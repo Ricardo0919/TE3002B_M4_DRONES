@@ -1,6 +1,5 @@
 from djitellopy import Tello
 import cv2
-import threading
 import time
 
 
@@ -9,33 +8,59 @@ drone = Tello()
 drone.connect()
 # Inicia el stream de video
 drone.streamon()
+time.sleep(3)
+
 # Revisar el estado de la bateria
 print(drone.get_battery())
 
 # Iniciar la variable drone_flying
-drone_flying = False
-
+global flying
 
 def clean_exit():
     print("\nInterrupción detectada. Cerrando el programa...")
     print("\nDeteniendo el dron...")
+    if flying:
+        drone.send_rc_control(0, 0, 0, 0)
+        time.sleep(0.5)
+        drone.land()
+    cv2.destroyAllWindows()
     drone.streamoff()
     drone.end()
-    cv2.destroyAllWindows()
     print("Programa cerrado correctamente.")
+    
 
+def control():
+    # Iniciar la variable flying
+    global flying
+    flying = False
 
-def video_stream():
+    # Iniciar velocidad de inicial de vuelo
+    fb_vel = 0
 
     while True:
         # Obteniendo el último frame del video
         frame = drone.get_frame_read().frame
+        if frame is None:
+            continue
+        
+        # Convertir el frame a RGB
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        # Mostrando la imagen
-        cv2.imshow("Stream de video", frame)
+        # Mostrar bateria en el frame 
+        cv2.putText(frame, f'Bateria: {drone.get_battery()}%',
+                    (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                    (0, 255, 0), 2)
 
-        # Moviendo el drone con el teclado
-        key = cv2.waitkey(10) & 0xFF
+        # Mostrar la altura del drone en el frame
+        cv2.putText(frame, f'Altura: {drone.get_height()}cm',
+                    (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                    (0, 255, 0), 2)
+
+        # Mostrar la imagen
+        cv2.imshow('Video Stream', frame)
+
+        # Mover el drone con el teclado
+        key = cv2.waitKey(50) & 0xFF
 
         # Cerrar al presionar 'q'
         if key == ord('q'):
@@ -43,49 +68,42 @@ def video_stream():
             break
 
         # Take off al presionar 't'
-        elif key == ord('t'):
-            if not drone_flying:
+        if key == ord('t'):
+            if flying:
+                pass
+            else:
                 drone.takeoff()
-                drone_flying = True
+                flying = True
 
         # Aterrizar con 'l'
-        elif key == ord('l'):
-            if drone_flying:
+        if key == ord('l'):
+            if flying:
                 drone.land()
-                drone_flying = False
+                time.sleep(5)
+                flying = False
 
         # Mover hacia adelante con 'w'
-        elif key == ord('w'):
-            drone_fb_speed = 60
+        if key == ord('w'):
+            fb_vel = 60
 
         # Mover hacia atras con 's'
         elif key == ord('s'):
-            drone_fb_speed = -60
-
+            fb_vel = -60
+        
+        
+        # Detener el movimiento
         else:
-            drone_fb_speed = 0
+            fb_vel = 0
 
-        if drone_flying:
-            drone.send_rc_control(0, drone_fb_speed, 0, 0)
-
-
-def control():
-
-    while True:
-        pass
+        # Enviar el comando al drone
+        if flying: drone.send_rc_control(0, fb_vel, 0, 0)
 
 
 def main():
-
     try:
-        video_stream()
-
-        while True:
-            time.sleep(1)
-
+        control()
     except KeyboardInterrupt:
         clean_exit()
-
 
 if __name__ == '__main__':
     main()
