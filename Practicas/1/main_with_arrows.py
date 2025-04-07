@@ -5,7 +5,7 @@ import tkinter as tk
 from PIL import Image, ImageTk
 
 # Tamaño del video en la interfaz
-width, height = 320, 240
+width, height = 640, 480
 
 # Inicializa el dron
 drone = Tello()
