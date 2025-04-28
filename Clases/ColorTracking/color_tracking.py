@@ -21,12 +21,21 @@ cv2.namedWindow('Trackbars')
 cv2.resizeWindow('Trackbars', 600, 250)  # Ancho = 600 píxeles, Alto = 400 píxeles
 
 # Crea trackbars para ajustar los valores H, S, V
-H_Min_init = 90
-H_Max_init = 150
-S_Min_init = 50
-S_Max_init = 200
-V_Min_init = 80
-V_Max_init = 170
+# USB - Azul
+#H_Min_init = 90
+#H_Max_init = 150
+#S_Min_init = 50
+#S_Max_init = 200
+#V_Min_init = 80
+#V_Max_init = 170
+
+# Cubo rubix - Verde
+H_Min_init = 50
+H_Max_init = 80
+S_Min_init = 80
+S_Max_init = 255
+V_Min_init = 60
+V_Max_init = 255
 
 area_min = 0.05 * (width * height)
 
