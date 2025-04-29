@@ -32,9 +32,10 @@ def control():
 
     while True:
 
-        frame = drone.get_frame_read().frame
+        frame = drone.get_frame_read()
+        frame = frame.frame
         if frame is None:
-            continue
+            print("No se recibió el frame del dron.")
 
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
@@ -48,6 +49,7 @@ def control():
 
 
         cv2.imshow('Video Stream', frame)
+        cv2.waitKey(1)
 
         key = cv2.waitKey(50) & 0xFF
 
