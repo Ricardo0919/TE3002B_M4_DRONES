@@ -26,8 +26,8 @@ MAX_HEIGHT_CM = 300
 WARNING_DURATION = 3
 speed = 20
 
-AREA_TOO_SMALL = 8000
-AREA_TOO_LARGE = 14000
+AREA_TOO_SMALL = 4000
+AREA_TOO_LARGE = 40000
 
 # ───────────────────────────
 # Variables de estado globales
@@ -296,10 +296,10 @@ def update_frame():
                 ud_vel = 0
         
         # Seguimiento automático adelante/atrás basado en el área
-        if flying and object_area is not None and not manual_fb:
-            if object_area < AREA_TOO_SMALL:
+        if flying and area is not None and not manual_fb:
+            if area < AREA_TOO_SMALL:
                 fb_vel = speed  # Avanzar
-            elif object_area > AREA_TOO_LARGE:
+            elif area > AREA_TOO_LARGE:
                 fb_vel = -speed  # Retroceder
             else:
                 fb_vel = 0
