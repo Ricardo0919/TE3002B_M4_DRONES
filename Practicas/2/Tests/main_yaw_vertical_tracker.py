@@ -142,6 +142,11 @@ def draw_status(frame, speed):
     cv2.putText(frame, f'Estado: {estado}', (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,255,0), 2)
     cv2.putText(frame, f'Speed: {speed}', (width-150, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,255,255), 2)
 
+    if center_object_x is not None and center_object_y is not None:
+        texto_centro = f'Centro: ({center_object_x}, {center_object_y})'
+        cv2.putText(frame, texto_centro, (10, height - 45), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+
+
     if warning_msg and time.time() - warning_time < WARNING_DURATION:
         cv2.putText(frame, warning_msg, (10, height-20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,0,255), 2)
 

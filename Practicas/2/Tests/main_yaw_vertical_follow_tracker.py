@@ -1,5 +1,5 @@
 """
-Práctica 1: Movimientos Básicos + Detección de Objetos HSV + Seguimiento en eje yaw (con prioridad manual)
+Práctica 1: Movimientos Básicos + Detección de Objetos HSV + Seguimiento en eje yaw y eje vertical (con prioridad manual)
 Implementación de Robótica Inteligente
 """
 
@@ -24,7 +24,10 @@ area_min = 0.001 * (width * height)
 
 MAX_HEIGHT_CM = 300
 WARNING_DURATION = 3
-speed = 60
+speed = 20
+
+AREA_TOO_SMALL = 2500
+AREA_TOO_LARGE = 5000
 
 # ───────────────────────────
 # Variables de estado globales
@@ -38,18 +41,19 @@ warning_msg = ""
 warning_time = 0
 follow_yaw = True
 manual_yaw = False
+manual_ud = False
+manual_fb = False
 center_object_x = None
+center_object_y = None
+object_area = None
 
 # ───────────────────────────
-# Rango HSV inicial - Verde Rubik
+# Rango HSV inicial - Azul Rubix
 # ───────────────────────────
 H_Min_init, H_Max_init = 40, 80
 S_Min_init, S_Max_init = 50, 255
 V_Min_init, V_Max_init = 50, 255
-#original
-#H_Min_init, H_Max_init = 50, 80
-#S_Min_init, S_Max_init = 80, 255
-#V_Min_init, V_Max_init = 60, 255
+
 
 # ───────────────────────────
 # Inicialización del dron
@@ -92,19 +96,22 @@ def get_trackbar_values():
 # Detección de objetos
 # ───────────────────────────
 def detect_and_draw(frame, hsv, lower, upper):
-    global center_object_x
+    global center_object_x, center_object_y
     mask = cv2.inRange(hsv, lower, upper)
     mask = cv2.erode(mask, None, iterations=1)
     mask = cv2.dilate(mask, None, iterations=1)
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-
+    
     center_object_x = None
+    center_object_y = None
     for contour in contours:
         area = cv2.contourArea(contour)
+        object_area = area
         if area > area_min:
             x, y, w, h = cv2.boundingRect(contour)
             center = (x + w // 2, y + h // 2)
             center_object_x = center[0]
+            center_object_y = center[1]
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0,255,0), 2)
             cv2.circle(frame, center, 4, (0,0,255), cv2.FILLED)
             label_direction(frame, center)
@@ -141,6 +148,13 @@ def draw_status(frame, speed):
     cv2.putText(frame, f'Estado: {estado}', (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,255,0), 2)
     cv2.putText(frame, f'Speed: {speed}', (width-150, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,255,255), 2)
 
+    if center_object_x is not None and center_object_y is not None:
+        texto_centro = f'Centro: ({center_object_x}, {center_object_y})'
+        cv2.putText(frame, texto_centro, (10, height - 45), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+
+    if object_area is not None:
+        cv2.putText(frame, f'Area: {int(object_area)}', (10, height - 70), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+
     if warning_msg and time.time() - warning_time < WARNING_DURATION:
         cv2.putText(frame, warning_msg, (10, height-20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,0,255), 2)
 
@@ -176,7 +190,7 @@ def clean_exit():
     sys.exit()
 
 def key_press(event):
-    global flying, lr_vel, fb_vel, ud_vel, yaw_vel, warning_msg, warning_time, speed, manual_yaw
+    global flying, lr_vel, fb_vel, ud_vel, yaw_vel, warning_msg, warning_time, speed, manual_yaw, manual_ud
     key = event.keysym.lower()
     if key == 'm':
         clean_exit()
@@ -194,18 +208,27 @@ def key_press(event):
         time.sleep(0.5)
         drone.land()
         flying = False
-    elif key == 'w': fb_vel = speed
-    elif key == 's': fb_vel = -speed
-    elif key == 'a': lr_vel = -speed
-    elif key == 'd': lr_vel = speed
+    elif key == 'w': 
+        fb_vel = speed
+        manual_fb = True
+    elif key == 's': 
+        fb_vel = -speed
+        manual_fb = True
+    elif key == 'a': 
+        lr_vel = -speed
+    elif key == 'd': 
+        lr_vel = speed
     elif key == 'r':
         if drone.get_height() < MAX_HEIGHT_CM:
             ud_vel = speed
+            manual_ud = True
         else:
             warning_msg = "Altura máxima alcanzada (3 m)."
             warning_time = time.time()
             ud_vel = 0
-    elif key == 'f': ud_vel = -speed
+    elif key == 'f':
+        ud_vel = -speed
+        manual_ud = True
     elif key == 'e':
         yaw_vel = speed
         manual_yaw = True
@@ -214,11 +237,16 @@ def key_press(event):
         manual_yaw = True
 
 def key_release(event):
-    global lr_vel, fb_vel, ud_vel, yaw_vel, manual_yaw
+    global lr_vel, fb_vel, ud_vel, yaw_vel, manual_yaw, manual_ud
     key = event.keysym.lower()
-    if key in ['w','s']: fb_vel = 0
-    elif key in ['a','d']: lr_vel = 0
-    elif key in ['r','f']: ud_vel = 0
+    if key in ['w','s']: 
+        fb_vel = 0
+        manual_fb = False
+    elif key in ['a','d']: 
+        lr_vel = 0
+    elif key in ['r','f']:
+        ud_vel = 0
+        manual_ud = False
     elif key in ['e','q']:
         yaw_vel = 0
         manual_yaw = False
@@ -230,7 +258,7 @@ root.bind("<KeyRelease>", key_release)
 # Loop de video y seguimiento
 # ───────────────────────────
 def update_frame():
-    global lr_vel, fb_vel, ud_vel, yaw_vel, flying, warning_msg, warning_time, speed, center_object_x, manual_yaw
+    global lr_vel, fb_vel, ud_vel, yaw_vel, flying, warning_msg, warning_time, speed, center_object_x, center_object_y, manual_yaw, manual_ud
 
     try:
         frame = drone.get_frame_read().frame
@@ -246,21 +274,39 @@ def update_frame():
         draw_guides(frame)
         draw_status(frame, speed)
 
-        # Seguimiento automático yaw (si no hay input manual)
+        # Seguimiento automático yaw
         if flying and follow_yaw and center_object_x is not None and not manual_yaw:
             center_x = width // 2
             if center_object_x < (center_x - x_threshold):
-                yaw_vel = -15
+                yaw_vel = -speed
             elif center_object_x > (center_x + x_threshold):
-                yaw_vel = 15
+                yaw_vel = speed
             else:
-                yaw_vel = 0  # En el centro
+                yaw_vel = 0
 
-        # Enviar comandos de movimiento
+        # Seguimiento automático vertical (ud_vel)
+        if flying and follow_yaw and center_object_y is not None and not manual_ud:
+            center_y = height // 2
+            if center_object_y < (center_y - y_threshold):
+                ud_vel = speed
+            elif center_object_y > (center_y + y_threshold):
+                ud_vel = -speed
+            else:
+                ud_vel = 0
+        
+        # Seguimiento automático adelante/atrás basado en el área
+        if flying and object_area is not None and not manual_fb:
+            if object_area < AREA_TOO_SMALL:
+                fb_vel = speed  # Avanzar
+            elif object_area > AREA_TOO_LARGE:
+                fb_vel = -speed  # Retroceder
+            else:
+                fb_vel = 0
+
+
         if flying:
             drone.send_rc_control(lr_vel, fb_vel, ud_vel, yaw_vel)
 
-        # Mostrar en GUI
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         img = Image.fromarray(frame_rgb)
         imgtk = ImageTk.PhotoImage(image=img)
