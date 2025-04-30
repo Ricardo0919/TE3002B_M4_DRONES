@@ -26,8 +26,8 @@ MAX_HEIGHT_CM = 300
 WARNING_DURATION = 3
 speed = 20
 
-AREA_TOO_SMALL = 2500
-AREA_TOO_LARGE = 5000
+AREA_TOO_SMALL = 8000
+AREA_TOO_LARGE = 14000
 
 # ───────────────────────────
 # Variables de estado globales
@@ -45,7 +45,7 @@ manual_ud = False
 manual_fb = False
 center_object_x = None
 center_object_y = None
-object_area = None
+area = None
 
 # ───────────────────────────
 # Rango HSV inicial - Azul Rubix
@@ -105,8 +105,8 @@ def detect_and_draw(frame, hsv, lower, upper):
     center_object_x = None
     center_object_y = None
     for contour in contours:
+        global area
         area = cv2.contourArea(contour)
-        object_area = area
         if area > area_min:
             x, y, w, h = cv2.boundingRect(contour)
             center = (x + w // 2, y + h // 2)
@@ -152,8 +152,9 @@ def draw_status(frame, speed):
         texto_centro = f'Centro: ({center_object_x}, {center_object_y})'
         cv2.putText(frame, texto_centro, (10, height - 45), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
-    if object_area is not None:
-        cv2.putText(frame, f'Area: {int(object_area)}', (10, height - 70), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+    if area is not None:
+        texto_area = f'Area: {int(area)}'
+        cv2.putText(frame, texto_area, (10, height - 75), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
     if warning_msg and time.time() - warning_time < WARNING_DURATION:
         cv2.putText(frame, warning_msg, (10, height-20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,0,255), 2)
