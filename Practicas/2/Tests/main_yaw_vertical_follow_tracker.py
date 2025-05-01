@@ -1,11 +1,3 @@
-"""
-Práctica 1: Movimientos Básicos + Detección de Objetos HSV + Seguimiento en eje yaw y eje vertical (con prioridad manual)
-Implementación de Robótica Inteligente
-"""
-
-# ───────────────────────────
-# Imports
-# ───────────────────────────
 from djitellopy import Tello
 import cv2
 import numpy as np
@@ -18,16 +10,16 @@ import sys
 # Configuración general
 # ───────────────────────────
 width, height = 640, 480
-x_threshold = int(0.10 * width)
-y_threshold = int(0.10 * height)
+x_threshold = int(0.15 * width)
+y_threshold = int(0.15 * height)
 area_min = 0.001 * (width * height)
 
 MAX_HEIGHT_CM = 300
 WARNING_DURATION = 3
 speed = 20
 
-AREA_TOO_SMALL = 4000
-AREA_TOO_LARGE = 40000
+AREA_TOO_SMALL = 1500
+AREA_TOO_LARGE = 20000
 
 # ───────────────────────────
 # Variables de estado globales
@@ -48,12 +40,18 @@ center_object_y = None
 area = None
 
 # ───────────────────────────
-# Rango HSV inicial - Azul Rubix
+# Rango HSV inicial - Amarillo Rubix
+# ───────────────────────────
+#H_Min_init, H_Max_init = 20, 40
+#S_Min_init, S_Max_init = 148, 255
+#V_Min_init, V_Max_init = 89, 255
+
+# ───────────────────────────
+# Rango HSV inicial - Verde Rubix
 # ───────────────────────────
 H_Min_init, H_Max_init = 40, 80
 S_Min_init, S_Max_init = 50, 255
 V_Min_init, V_Max_init = 50, 255
-
 
 # ───────────────────────────
 # Inicialización del dron
@@ -80,6 +78,8 @@ def setup_trackbars():
     cv2.createTrackbar('V Min',  'Trackbars', V_Min_init, 255, nothing)
     cv2.createTrackbar('V Max',  'Trackbars', V_Max_init, 255, nothing)
     cv2.createTrackbar('Speed',  'Trackbars', speed,      100, nothing)
+    cv2.createTrackbar('Area Min', 'Trackbars', int(area_min), 30000, nothing)
+
 
 def get_trackbar_values():
     return {
@@ -96,40 +96,51 @@ def get_trackbar_values():
 # Detección de objetos
 # ───────────────────────────
 def detect_and_draw(frame, hsv, lower, upper):
-    global center_object_x, center_object_y
+    global center_object_x, center_object_y, area
+
+    center_object_x = None
+    center_object_y = None
+    area = None
+
     mask = cv2.inRange(hsv, lower, upper)
     mask = cv2.erode(mask, None, iterations=1)
     mask = cv2.dilate(mask, None, iterations=1)
+
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-    
-    center_object_x = None
-    center_object_y = None
-    for contour in contours:
-        global area
-        area = cv2.contourArea(contour)
-        if area > area_min:
-            x, y, w, h = cv2.boundingRect(contour)
-            center = (x + w // 2, y + h // 2)
-            center_object_x = center[0]
-            center_object_y = center[1]
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0,255,0), 2)
-            cv2.circle(frame, center, 4, (0,0,255), cv2.FILLED)
-            label_direction(frame, center)
 
-def label_direction(frame, center):
-    if center[0] < (width//2 - x_threshold):
-        cv2.putText(frame, "Izquierda", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,0), 2)
-    elif center[0] > (width//2 + x_threshold):
-        cv2.putText(frame, "Derecha", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,0), 2)
-    else:
-        cv2.putText(frame, "Centro X", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,0), 2)
+    area_min_dynamic = cv2.getTrackbarPos('Area Min', 'Trackbars')
 
-    if center[1] < (height//2 - y_threshold):
-        cv2.putText(frame, "Arriba", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,0), 2)
-    elif center[1] > (height//2 + y_threshold):
-        cv2.putText(frame, "Abajo", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,0), 2)
-    else:
-        cv2.putText(frame, "Centro Y", (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,0), 2)
+    for cnt in contours:
+        a = cv2.contourArea(cnt)
+        if a > area_min_dynamic:
+            area = a
+            peri = cv2.arcLength(cnt, True)
+            approx = cv2.approxPolyDP(cnt, 0.02 * peri, True)
+            x, y, w, h = cv2.boundingRect(approx)
+
+            cx = x + w // 2
+            cy = y + h // 2
+            center_object_x = cx
+            center_object_y = cy
+
+            # Dibujar info visual
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 255), 2)
+            cv2.line(frame, (width//2, height//2), (cx, cy), (0, 0, 255), 2)
+
+            # Dirección estimada
+            if cx < width // 2 - x_threshold:
+                cv2.putText(frame, "Izquierda", (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            elif cx > width // 2 + x_threshold:
+                cv2.putText(frame, "Derecha", (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            else:
+                cv2.putText(frame, "Centro X", (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+
+            if cy < height // 2 - y_threshold:
+                cv2.putText(frame, "Arriba", (10, 130), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            elif cy > height // 2 + y_threshold:
+                cv2.putText(frame, "Abajo", (10, 130), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            else:
+                cv2.putText(frame, "Centro Y", (10, 130), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
 def draw_guides(frame):
     cv2.line(frame, (width//2 - x_threshold, 0), (width//2 - x_threshold, height), (255,0,0), 2)
