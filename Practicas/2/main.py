@@ -23,10 +23,15 @@ import tkinter as tk
 from PIL import Image, ImageTk
 import sys
 
-# ───────────────────────────
-# Configuración general
-# ───────────────────────────
-# Dimensiones de la ventana de video y márgenes de tolerancia para seguimiento
+# =============================================================================
+# CONFIGURACIÓN GLOBAL
+# Params:
+#   width, height: Dimensiones del video (640x480)
+#   x/y_threshold: Umbrales para zona central
+#   MAX_HEIGHT_CM: Altura máxima de seguridad (300cm)
+# Outputs: Ninguno (variables globales)
+# Descripción: Define parámetros base para el funcionamiento del sistema
+# =============================================================================
 width, height = 640, 480
 x_threshold = int(0.15 * width)  # Umbral horizontal para centro
 y_threshold = int(0.15 * height)  # Umbral vertical para centro
@@ -88,8 +93,13 @@ print(f'Batería: {drone.get_battery()}%')
 # ───────────────────────────
 def nothing(x): pass
 
+# =============================================================================
+# setup_trackbars()
+# Params: Ninguno
+# Outputs: Ninguno (crea ventana de trackbars)
+# Descripción: Crea interfaz de ajustes HSV y parámetros de control
+# =============================================================================
 def setup_trackbars():
-    # Crea sliders para ajustar valores HSV, velocidad y área mínima
     cv2.namedWindow('Trackbars')
     cv2.resizeWindow('Trackbars', 400, 250)
     cv2.createTrackbar('H Min',  'Trackbars', H_Min_init, 179, nothing)
@@ -102,6 +112,12 @@ def setup_trackbars():
     cv2.createTrackbar('Area Min', 'Trackbars', int(area_min), 30000, nothing)
 
 
+# =============================================================================
+# get_trackbar_values()
+# Params: Ninguno
+# Outputs: dict con valores actuales de trackbars
+# Descripción: Obtiene valores actualizados de los controles deslizantes
+# =============================================================================
 def get_trackbar_values():
     # Devuelve los valores actuales de los sliders
     return {
@@ -114,9 +130,15 @@ def get_trackbar_values():
         'speed': cv2.getTrackbarPos('Speed', 'Trackbars')
     }
 
-# ───────────────────────────
-# Detección del objeto por color y visualización de resultados
-# ───────────────────────────
+# =============================================================================
+# detect_and_draw(frame, hsv, lower, upper)
+# Params:
+#   frame: Imagen de video actual
+#   hsv: Versión en espacio de color HSV del frame
+#   lower/upper: Límites HSV para detección
+# Outputs: None (actualiza variables globales de posición/área)
+# Descripción: Detecta objetos por color y dibuja contornos/marcadores
+# =============================================================================
 def detect_and_draw(frame, hsv, lower, upper):
     global center_object_x, center_object_y, area
 
@@ -165,9 +187,12 @@ def detect_and_draw(frame, hsv, lower, upper):
             else:
                 cv2.putText(frame, "Centro Y", (10, 130), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
-# ───────────────────────────
-# Dibujo de líneas guía en el centro de la pantalla
-# ───────────────────────────
+# =============================================================================
+# draw_guides(frame)
+# Params: frame - Imagen donde dibujar
+# Outputs: None (modifica frame)
+# Descripción: Dibuja líneas guía para zona central de seguimiento
+# =============================================================================
 def draw_guides(frame):
     # Líneas verticales a los lados del centro (margen de seguimiento en X)
     cv2.line(frame, (width//2 - x_threshold, 0), (width//2 - x_threshold, height), (255,0,0), 2)
@@ -176,9 +201,14 @@ def draw_guides(frame):
     cv2.line(frame, (0, height//2 - y_threshold), (width, height//2 - y_threshold), (255,0,0), 2)
     cv2.line(frame, (0, height//2 + y_threshold), (width, height//2 + y_threshold), (255,0,0), 2)
 
-# ───────────────────────────
-# Mostrar información de estado del dron
-# ───────────────────────────
+# =============================================================================
+# draw_status(frame, speed)
+# Params:
+#   frame: Imagen donde mostrar datos
+#   speed: Velocidad actual del dron
+# Outputs: None (dibuja en frame)
+# Descripción: Muestra información de batería, altura y estado del dron
+# =============================================================================─
 def draw_status(frame, speed):
     global warning_msg, warning_time, flying
     bateria = drone.get_battery()
@@ -237,9 +267,12 @@ def clean_exit():
     root.destroy()
     sys.exit()
 
-# ───────────────────────────
-# Control del teclado (presionar tecla)
-# ───────────────────────────
+# =============================================================================
+# key_press(event)
+# Params: event - Evento de tecla presionada
+# Outputs: None (modifica velocidades globales)
+# Descripción: Maneja acciones al presionar teclas (movimiento, despegue, etc.)
+# =============================================================================
 def key_press(event):
     global flying, lr_vel, fb_vel, ud_vel, yaw_vel, warning_msg, warning_time, speed, manual_yaw, manual_ud
     key = event.keysym.lower()
@@ -295,9 +328,12 @@ def key_press(event):
         yaw_vel = -speed
         manual_yaw = True
 
-# ───────────────────────────
-# Control del teclado (soltar tecla)
-# ───────────────────────────
+# =============================================================================
+# key_release(event)
+# Params: event - Evento de tecla liberada
+# Outputs: None (modifica velocidades globales)
+# Descripción: Detiene movimientos al soltar teclas
+# =============================================================================
 def key_release(event):
     global lr_vel, fb_vel, ud_vel, yaw_vel, manual_yaw, manual_ud
     key = event.keysym.lower()
@@ -319,9 +355,12 @@ def key_release(event):
 root.bind("<KeyPress>", key_press)
 root.bind("<KeyRelease>", key_release)
 
-# ───────────────────────────
-# Loop principal de actualización de video y seguimiento
-# ───────────────────────────
+# =============================================================================
+# update_frame()
+# Params: Ninguno (usa variables globales)
+# Outputs: Ninguno (actualiza interfaz continuamente)
+# Descripción: Loop principal que procesa video, control y seguimiento
+# =============================================================================
 def update_frame():
     global lr_vel, fb_vel, ud_vel, yaw_vel, flying, warning_msg, warning_time, speed, center_object_x, center_object_y, manual_yaw, manual_ud
 
@@ -389,9 +428,10 @@ def update_frame():
         print(f"Error en update_frame: {e}")
         clean_exit()
 
-# ───────────────────────────
-# Iniciar programa
-# ───────────────────────────
+# =============================================================================
+# BLOQUE DE INICIO
+# Descripción: Configuración inicial y arranque del sistema
+# =============================================================================
 setup_trackbars()
 update_frame()
 try:
