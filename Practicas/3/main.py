@@ -138,6 +138,17 @@ scale_speed = tk.Scale(frame_drone, from_=0, to=100, orient='horizontal', length
 scale_speed.set(speed)
 scale_speed.pack(pady=(0, 10))
 
+# Nuevo: trackbar para ajustar altura máxima (cm)
+tk.Label(frame_drone, text="Max Altura (cm)").pack(pady=(5, 0))
+scale_max_height = tk.Scale(
+    frame_drone,
+    from_=0, to=500,
+    orient='horizontal',
+    length=200,
+    resolution=10
+)
+scale_max_height.set(MAX_HEIGHT_CM)
+scale_max_height.pack(pady=(0, 10))
 
 # Frame de gestos
 gesture_label = tk.Label(root)
@@ -196,6 +207,9 @@ def process_gestures_and_commands():
 
     # Leer valor de speed del trackbar
     speed = scale_speed.get()
+
+    # Leer valor de altura máxima del trackbar
+    max_h = scale_max_height.get()
 
     # Ya está en 320×240, no hace falta rescálalo. Solo flip + RGB:
     frame = cv2.flip(frame, 1)
@@ -268,16 +282,20 @@ def process_gestures_and_commands():
         for hand in manos:
             lm = hand.landmark
 
-            # → PULGAR solo (si todos los demás dedos están abajo)
-            if pulgar_extendido(lm) and contar_dedos(lm) == 0:
-                label = "PULGAR (Solo)"
-                ud_vel = speed // 2
-                break
-
             # → Meñique levantado → SUBIR
             if is_only_pinky(lm):
                 label = "SUBIR (Meñique)"
-                ud_vel = speed
+                # ← bloque para máxima altura:
+                try:
+                    cur_h = drone.get_height()
+                except Exception:
+                    cur_h = 0
+                if cur_h < max_h:
+                    ud_vel = speed
+                else:
+                    ud_vel = 0
+                    warning_msg  = "⚠️ Tope altura alcanzado"
+                    warning_time = tiempo_actual
                 break
 
             # → Cuernito → BAJAR
@@ -483,18 +501,22 @@ def key_press(event):
     elif key == 'd':
         lr_vel = speed
     elif key == 'r':
+        # ← Leer altura máxima desde el trackbar:
         try:
-            altura = drone.get_height()
+            altura_actual = drone.get_height()
         except Exception:
-            altura = 0
-        if altura < MAX_HEIGHT_CM:
+            altura_actual = 0
+        max_h = scale_max_height.get()
+
+        if altura_actual < max_h:
             ud_vel = speed
         else:
-            msg = "⚠️ Altura máx (3 m) alcanzada."
+            msg = "⚠️ Altura máx alcanzada"
             print(f"\n{msg}")
-            warning_msg = msg
+            warning_msg  = msg
             warning_time = time.time()
             ud_vel = 0
+
     elif key == 'f':
         ud_vel = -speed
     elif key == 'e':
