@@ -223,12 +223,12 @@ def process_gestures_and_commands():
     manos = result.multi_hand_landmarks
     puño_actual = any(is_fist(hand.landmark) for hand in manos)
 
-    # —— PUÑO (1 s hold) = toggle estado vuelo —— 
+    # —— PUÑO (2.5 s hold) = toggle estado vuelo —— 
     if puño_actual:
         if fist_start_time is None:
             fist_start_time = tiempo_actual
             fist_confirmed = False
-        elif tiempo_actual - fist_start_time >= 1.0 and not fist_confirmed:
+        elif tiempo_actual - fist_start_time >= 2.5 and not fist_confirmed:
             # Toggle: si no vuela, takeoff; si vuela, land
             if not flying:
                 if drone.get_battery() > 15:
